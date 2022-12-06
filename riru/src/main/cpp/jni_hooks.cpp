@@ -2,14 +2,17 @@
 #include <unistd.h>
 #include <mntent.h>
 #include <android_prop.h>
-#include <xhook.h>
 #include <dlfcn.h>
 #include <elf_util.h>
+#include <lsplt.hpp>
 
 #include "jni_hooks.h"
 #include "logging.h"
 #include "module.h"
 #include "entry.h"
+
+ino_t android_runtime_dev = 0;
+ino_t android_runtime_inode = 0;
 
 namespace jni::zygote {
     const char *classname = "com/android/internal/os/Zygote";
@@ -140,8 +143,14 @@ handleRegisterNative(const char *className, const JNINativeMethod *methods, int 
     }
 }
 
-#define XHOOK_REGISTER(PATH_REGEX, NAME) \
-    if (xhook_register(PATH_REGEX, #NAME, (void*) new_##NAME, (void **) &old_##NAME) != 0) \
+static bool hook_register(dev_t dev, ino_t inode, const char *symbol, void *new_func, void **old_func) {
+    if (!lsplt::RegisterHook(dev, inode, symbol, new_func, old_func))
+        return false;
+    return true;
+}
+
+#define XHOOK_REGISTER(DEV, PATH_REGEX, NAME) \
+    if (hook_register(DEV, PATH_REGEX, #NAME, (void*) new_##NAME, (void **) &old_##NAME) != 0) \
         LOGE("failed to register hook " #NAME "."); \
 
 #define NEW_FUNC_DEF(ret, func, ...) \
@@ -207,12 +216,10 @@ void jni::RestoreHooks(JNIEnv *env) {
     if (useTableOverride) {
         setTableOverride(nullptr);
     } else {
-        xhook_register(".*\\libandroid_runtime.so$", "jniRegisterNativeMethods",
+        hook_register(android_runtime_dev, android_runtime_inode, "jniRegisterNativeMethods",
                        (void *) old_jniRegisterNativeMethods,
                        nullptr);
-        if (xhook_refresh(0) == 0) {
-            xhook_clear();
-        }
+        lsplt::CommitHook();
     }
 
     RestoreJNIMethod(zygote, nativeForkAndSpecialize)
@@ -223,10 +230,18 @@ void jni::RestoreHooks(JNIEnv *env) {
 }
 
 void jni::InstallHooks() {
-    XHOOK_REGISTER(".*\\libandroid_runtime.so$", jniRegisterNativeMethods)
 
-    if (xhook_refresh(0) == 0) {
-        xhook_clear();
+    for (auto &map : lsplt::MapInfo::Scan()) {
+        if (map.path.ends_with("libandroid_runtime.so")) {
+            android_runtime_dev = map.dev;
+            android_runtime_inode = map.inode;
+            break;
+        }
+    }
+
+    XHOOK_REGISTER(android_runtime_dev, android_runtime_inode, jniRegisterNativeMethods)
+
+    if (lsplt::CommitHook()) {
         LOGI("hook installed");
     } else {
         LOGE("failed to refresh hook");

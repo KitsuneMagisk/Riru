@@ -48,18 +48,18 @@ endif ()
 string(TOUPPER CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE} CXX_FLAGS_WITH_BUILD_TYPE)
 string(TOUPPER CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE} C_FLAGS_WITH_BUILD_TYPE)
 
-set(${CXX_FLAGS_WITH_BUILD_TYPE} "${${CXX_FLAGS_WITH_BUILD_TYPE}} ${C_FLAGS}")
-set(${C_FLAGS_WITH_BUILD_TYPE} "${${CXX_FLAGS_WITH_BUILD_TYPE}} ${C_FLAGS}")
+set(${CXX_FLAGS_WITH_BUILD_TYPE} "${${CXX_FLAGS_WITH_BUILD_TYPE}} ${C_FLAGS} -std=c++20")
+set(${C_FLAGS_WITH_BUILD_TYPE} "${${CXX_FLAGS_WITH_BUILD_TYPE}} ${C_FLAGS} -std=c++20")
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LINKER_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINKER_FLAGS}")
 
-find_package(xhook REQUIRED CONFIG)
 find_package(cxx REQUIRED CONFIG)
 find_package(proc-maps-parser REQUIRED CONFIG)
 
 include_directories(include)
 include_directories(include_riru)
+include_directories(external/lsplt/src/main/jni/include)
 
 add_library(utils STATIC
         util/android_prop.cpp
@@ -74,9 +74,11 @@ add_library(riru SHARED
         hide_utils.cpp
         module.cpp
         magisk.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/config.cpp)
+        ${CMAKE_CURRENT_BINARY_DIR}/config.cpp
+        external/lsplt/src/main/jni/elf_util.cc
+        external/lsplt/src/main/jni/lsplt.cc)
 target_include_directories(riru PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(riru log utils xhook::xhook cxx::cxx proc-maps-parser::proc-maps-parser)
+target_link_libraries(riru log utils cxx::cxx proc-maps-parser::proc-maps-parser)
 
 add_library(riruhide SHARED hide/hide.cpp)
 target_include_directories(riruhide PRIVATE ${CMAKE_SOURCE_DIR})
