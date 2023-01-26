@@ -80,11 +80,6 @@ public class Daemon implements IBinder.DeathRecipient {
             Log.w(TAG, "Restarting zygote does not help");
         }
 
-        if (DaemonUtils.hasIncorrectFileContext()) {
-            DaemonUtils.writeStatus(R.string.bad_file_context);
-            return;
-        }
-
         if ((DaemonUtils.has32Bit() && !new File("/proc/1/root/system/lib/libriruloader.so").exists()) ||
                 (DaemonUtils.has64Bit() && !new File("/proc/1/root/system/lib64/libriruloader.so").exists())) {
             DaemonUtils.writeStatus(R.string.files_not_mounted);
@@ -130,11 +125,7 @@ public class Daemon implements IBinder.DeathRecipient {
             }
         }
 
-        if (DaemonUtils.hasIncorrectFileContext()) {
-            DaemonUtils.writeStatus(R.string.bad_file_context_loaded, loadedModules.length, sb);
-        } else {
-            DaemonUtils.writeStatus(R.string.loaded, loadedModules.length, sb);
-        }
+        DaemonUtils.writeStatus(R.string.loaded, loadedModules.length, sb);
     }
 
     private void startWait(boolean isFirst) {
