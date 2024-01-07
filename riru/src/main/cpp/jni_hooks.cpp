@@ -171,6 +171,43 @@ NEW_FUNC_DEF(int, jniRegisterNativeMethods, JNIEnv *env, const char *className,
     return res;
 }
 
+static int
+new_RegisterNative(JNIEnv *env, jclass cls, const JNINativeMethod *methods, jint numMethods);
+
+NEW_FUNC_DEF(void, androidSetCreateThreadFunc, void *func) {
+    LOGD("androidSetCreateThreadFunc");
+    {
+        SandHook::ElfImg art("libart.so");
+
+        auto *GetJniNativeInterface = art.getSymbAddress<GetJniNativeInterface_t *>(
+                "_ZN3art21GetJniNativeInterfaceEv");
+        setTableOverride = art.getSymbAddress<SetTableOverride_t *>(
+                "_ZN3art9JNIEnvExt16SetTableOverrideEPK18JNINativeInterface");
+
+        if (setTableOverride != nullptr && GetJniNativeInterface != nullptr) {
+            auto functions = GetJniNativeInterface();
+            auto new_JNINativeInterface = new JNINativeInterface();
+            memcpy(new_JNINativeInterface, functions, sizeof(JNINativeInterface));
+            old_RegisterNatives = functions->RegisterNatives;
+            new_JNINativeInterface->RegisterNatives = new_RegisterNative;
+
+            setTableOverride(new_JNINativeInterface);
+            LOGI("override table installed");
+        } else {
+            if (GetJniNativeInterface == nullptr) LOGE("cannot find GetJniNativeInterface");
+            if (setTableOverride == nullptr) LOGE("cannot find setTableOverride");
+        }
+
+        auto *handle = dlopen("libnativehelper.so", 0);
+        if (handle) {
+            old_jniRegisterNativeMethods = reinterpret_cast<jniRegisterNativeMethods_t *>(dlsym(
+                    handle,
+                    "jniRegisterNativeMethods"));
+        }
+    }
+    old_androidSetCreateThreadFunc(func);
+}
+
 static jclass zygoteClass;
 
 static void prepareClassesForRegisterNativeHook(JNIEnv *env) {
@@ -215,6 +252,9 @@ new_RegisterNative(JNIEnv *env, jclass cls, const JNINativeMethod *methods, jint
 void jni::RestoreHooks(JNIEnv *env) {
     if (useTableOverride) {
         setTableOverride(nullptr);
+        hook_register(android_runtime_dev, android_runtime_inode, "androidSetCreateThreadFunc",
+                       (void *) old_androidSetCreateThreadFunc,
+                       nullptr);
     } else {
         hook_register(android_runtime_dev, android_runtime_inode, "jniRegisterNativeMethods",
                        (void *) old_jniRegisterNativeMethods,
@@ -249,36 +289,14 @@ void jni::InstallHooks() {
 
     useTableOverride = old_jniRegisterNativeMethods == nullptr;
 
-    if (useTableOverride) {
-        LOGI("no jniRegisterNativeMethods");
+    if (!useTableOverride) return;
 
-        SandHook::ElfImg art("libart.so");
+    XHOOK_REGISTER(android_runtime_dev, android_runtime_inode, androidSetCreateThreadFunc)
 
-        auto *GetJniNativeInterface = art.getSymbAddress<GetJniNativeInterface_t *>(
-                "_ZN3art21GetJniNativeInterfaceEv");
-        setTableOverride = art.getSymbAddress<SetTableOverride_t *>(
-                "_ZN3art9JNIEnvExt16SetTableOverrideEPK18JNINativeInterface");
-
-        if (setTableOverride != nullptr && GetJniNativeInterface != nullptr) {
-            auto functions = GetJniNativeInterface();
-            auto new_JNINativeInterface = new JNINativeInterface();
-            memcpy(new_JNINativeInterface, functions, sizeof(JNINativeInterface));
-            old_RegisterNatives = functions->RegisterNatives;
-            new_JNINativeInterface->RegisterNatives = new_RegisterNative;
-
-            setTableOverride(new_JNINativeInterface);
-            LOGI("override table installed");
-        } else {
-            if (GetJniNativeInterface == nullptr) LOGE("cannot find GetJniNativeInterface");
-            if (setTableOverride == nullptr) LOGE("cannot find setTableOverride");
-        }
-
-        auto *handle = dlopen("libnativehelper.so", 0);
-        if (handle) {
-            old_jniRegisterNativeMethods = reinterpret_cast<jniRegisterNativeMethods_t *>(dlsym(
-                    handle,
-                    "jniRegisterNativeMethods"));
-        }
+    if (lsplt::CommitHook()) {
+        LOGI("hook installed");
+    } else {
+        LOGE("failed to refresh hook");
     }
 }
 

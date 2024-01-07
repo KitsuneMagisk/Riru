@@ -58,7 +58,6 @@ extract "$ZIPFILE" 'module.prop' "$MODPATH"
 cp "$MODPATH/module.prop" "$MODPATH/module.prop.bk"
 extract "$ZIPFILE" 'post-fs-data.sh' "$MODPATH"
 extract "$ZIPFILE" 'service.sh' "$MODPATH"
-extract "$ZIPFILE" 'system.prop' "$MODPATH"
 extract "$ZIPFILE" 'util_functions.sh' "$MODPATH"
 extract "$ZIPFILE" 'uninstall.sh' "$MODPATH"
 
@@ -68,38 +67,44 @@ cp "$MODPATH"/util_functions.sh "$MAGISK_CURRENT_MODULE_PATH"/util_functions.sh
 
 mkdir "$MODPATH/lib"
 mkdir "$MODPATH/lib64"
-mkdir "$MODPATH/system"
-mkdir "$MODPATH/system/lib"
 [ "$IS64BIT" = true ] && mkdir "$MODPATH/system/lib64"
 
 if [ "$ARCH" = "x86" ] || [ "$ARCH" = "x64" ]; then
   ui_print "- Extracting x86 libraries"
   extract "$ZIPFILE" 'lib/x86/libriru.so' "$MODPATH/lib" true
   extract "$ZIPFILE" 'lib/x86/libriruhide.so' "$MODPATH/lib" true
-  extract "$ZIPFILE" 'lib/x86/libriruloader.so' "$MODPATH/system/lib" true
+  extract "$ZIPFILE" 'lib/x86/libriruloader.so' "$MODPATH/lib" true
 
   if [ "$IS64BIT" = true ]; then
     ui_print "- Extracting x64 libraries"
     extract "$ZIPFILE" 'lib/x86_64/libriru.so' "$MODPATH/lib64" true
     extract "$ZIPFILE" 'lib/x86_64/libriruhide.so' "$MODPATH/lib64" true
-    extract "$ZIPFILE" 'lib/x86_64/libriruloader.so' "$MODPATH/system/lib64" true
+    extract "$ZIPFILE" 'lib/x86_64/libriruloader.so' "$MODPATH/lib64" true
   fi
 else
   ui_print "- Extracting arm libraries"
   extract "$ZIPFILE" 'lib/armeabi-v7a/libriru.so' "$MODPATH/lib" true
   extract "$ZIPFILE" 'lib/armeabi-v7a/libriruhide.so' "$MODPATH/lib" true
-  extract "$ZIPFILE" 'lib/armeabi-v7a/libriruloader.so' "$MODPATH/system/lib" true
+  extract "$ZIPFILE" 'lib/armeabi-v7a/libriruloader.so' "$MODPATH/lib" true
 
   if [ "$IS64BIT" = true ]; then
     ui_print "- Extracting arm64 libraries"
     extract "$ZIPFILE" 'lib/arm64-v8a/libriru.so' "$MODPATH/lib64" true
     extract "$ZIPFILE" 'lib/arm64-v8a/libriruhide.so' "$MODPATH/lib64" true
-    extract "$ZIPFILE" 'lib/arm64-v8a/libriruloader.so' "$MODPATH/system/lib64" true
+    extract "$ZIPFILE" 'lib/arm64-v8a/libriruloader.so' "$MODPATH/lib64" true
   fi
 fi
 
 ui_print "- Setting permissions"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
+
+if [ "$IS64BIT" = true ]; then
+  ln -s ./lib64/libriruloader.so "$MODPATH/riruloader"
+else
+  ln -s ./lib/libriruloader.so "$MODPATH/riruloader"
+fi
+
+chmod 755 "$MODPATH/lib"*"/libriruloader.so"
 
 ui_print "- Extracting rirud"
 extract "$ZIPFILE" "rirud.apk" "$MODPATH"

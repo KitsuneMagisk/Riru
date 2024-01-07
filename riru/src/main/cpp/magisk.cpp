@@ -31,9 +31,9 @@ namespace magisk {
 
     std::string GetPathForSelfLib(const char *name) {
 #ifdef __LP64__
-        return GetPath() + "/.magisk/modules/riru-core/lib64/"s + name;
+        return GetPath() + "/riru/"s + name + "64";
 #else
-        return GetPath() + "/.magisk/modules/riru-core/lib/"s + name;
+        return GetPath() + "/riru/"s + name + "32";
 #endif
     }
 }  // namespace magisk

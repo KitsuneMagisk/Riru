@@ -88,14 +88,14 @@ if ("${ANDROID_ABI}" STREQUAL "x86" OR "${ANDROID_ABI}" STREQUAL "x86_64")
     add_definitions(-DHAS_NATIVE_BRIDGE)
 endif ()
 
-add_library(riruloader SHARED loader/loader.cpp ${CMAKE_CURRENT_BINARY_DIR}/config.cpp)
-target_link_libraries(riruloader log utils cxx::cxx)
+add_executable(libriruloader.so loader/main.cpp loader/trace-init.cpp loader/ptrace-utils.cpp loader/trace-exec-inject.cpp ${CMAKE_CURRENT_BINARY_DIR}/config.cpp)
+target_link_libraries(libriruloader.so log utils cxx::cxx)
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_custom_command(TARGET riru POST_BUILD
             COMMAND ${CMAKE_STRIP} --strip-all --remove-section=.comment "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libriru.so")
     add_custom_command(TARGET riruhide POST_BUILD
             COMMAND ${CMAKE_STRIP} --strip-all --remove-section=.comment "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libriruhide.so")
-    add_custom_command(TARGET riruloader POST_BUILD
+    add_custom_command(TARGET libriruloader.so POST_BUILD
             COMMAND ${CMAKE_STRIP} --strip-all --remove-section=.comment "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libriruloader.so")
 endif ()

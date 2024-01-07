@@ -8,6 +8,7 @@
 #include "hide_utils.h"
 #include "magisk.h"
 #include "entry.h"
+#include "config.h"
 
 static void *self_handle;
 static bool self_unload_allowed;
@@ -106,10 +107,29 @@ void Entry::Unload(jboolean is_child_zygote) {
 
 extern "C" [[gnu::visibility("default")]] [[maybe_unused]] void
 // NOLINTNEXTLINE
-init(void *handle, const char* magisk_path, const RirudSocket& rirud) {
+init(void *handle) {
     self_handle = handle;
 
-    magisk::SetPath(magisk_path);
+    LOGI("Riru %s (%d)", riru::versionName, riru::versionCode);
+    LOGI("Android %s (api %d, preview_api %d)", android_prop::GetRelease(),
+         android_prop::GetApiLevel(),
+         android_prop::GetPreviewApiLevel());
+
+    constexpr auto retries = 5U;
+    RirudSocket rirud{retries};
+
+    if (!rirud.valid()) {
+        LOGE("rirud connect fails");
+        return;
+    }
+
+    std::string magisk_path = rirud.ReadMagiskTmpfsPath();
+    if (magisk_path.empty()) {
+        LOGE("failed to obtain magisk path");
+        return;
+    }
+
+    magisk::SetPath(magisk_path.data());
     hide::PrepareMapsHideLibrary();
     jni::InstallHooks();
     modules::Load(rirud);

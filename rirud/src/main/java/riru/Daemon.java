@@ -17,7 +17,6 @@ public class Daemon implements IBinder.DeathRecipient {
     public static final String TAG = "RiruDaemon";
 
     private static final String SERVICE_FOR_TEST = "activity";
-    private static final String RIRU_LOADER = "libriruloader.so";
 
     private final Handler handler = new Handler(Looper.myLooper());
     private static final DaemonSocketServerThread serverThread = new DaemonSocketServerThread();
@@ -49,9 +48,6 @@ public class Daemon implements IBinder.DeathRecipient {
 
         Log.i(TAG, "Zygote is probably dead, restart rirud socket...");
 
-        Log.i(TAG, "Zygote is probably dead, reset native bridge to " + RIRU_LOADER + "...");
-        DaemonUtils.resetNativeBridgeProp(RIRU_LOADER);
-
         Log.i(TAG, "Zygote is probably dead, delete existing /dev/riru folders...");
         DaemonUtils.deleteDevFolder();
 
@@ -78,24 +74,6 @@ public class Daemon implements IBinder.DeathRecipient {
             return;
         } else {
             Log.w(TAG, "Restarting zygote does not help");
-        }
-
-        if ((DaemonUtils.has32Bit() && !new File("/proc/1/root/system/lib/libriruloader.so").exists()) ||
-                (DaemonUtils.has64Bit() && !new File("/proc/1/root/system/lib64/libriruloader.so").exists())) {
-            DaemonUtils.writeStatus(R.string.files_not_mounted);
-            return;
-        }
-
-        if (DaemonUtils.hasSELinux() && SELinux.isSELinuxEnabled() && SELinux.isSELinuxEnforced()
-                && (SELinux.checkSELinuxAccess("u:r:init:s0", "u:object_r:system_file:s0", "file", "relabelfrom")
-                || SELinux.checkSELinuxAccess("u:r:init:s0", "u:object_r:system_file:s0", "dir", "relabelfrom"))) {
-            DaemonUtils.writeStatus(R.string.bad_selinux_rule);
-            return;
-        }
-
-        if (!"libriruloader.so".equals(SystemProperties.get("ro.dalvik.vm.native.bridge"))) {
-            DaemonUtils.writeStatus(R.string.bad_prop);
-            return;
         }
 
         DaemonUtils.writeStatus(R.string.not_loaded);
@@ -156,7 +134,6 @@ public class Daemon implements IBinder.DeathRecipient {
 
         Log.i(TAG, "Magisk version is " + magiskVersionCode);
         Log.i(TAG, "Magisk tmpfs path is " + magiskTmpfsPath);
-        Log.i(TAG, "Original native bridge is " + DaemonUtils.getOriginalNativeBridge());
         Log.i(TAG, "Dev random is " + DaemonUtils.getDevRandom());
 
         Looper.prepare();

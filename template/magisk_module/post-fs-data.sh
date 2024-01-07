@@ -1,7 +1,7 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
 TMPPROP="$(magisk --path)/riru.prop"
-MIRRORPROP="$(magisk --path)/.magisk/modules/riru-core/module.prop"
+MIRRORPROP="/data/adb/modules/riru-core/module.prop"
 sh -Cc "cat '$MODDIR/module.prop' > '$TMPPROP'"
 if [ $? -ne 0 ]; then
   exit
@@ -14,6 +14,14 @@ fi
 sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ⛔ app_process fails to run. ] /g' "$MIRRORPROP"
 cd "$MODDIR" || exit
 flock "module.prop"
-mount --bind "$TMPPROP" "$MODDIR/module.prop"
 unshare -m sh -c "/system/bin/app_process -Djava.class.path=rirud.apk /system/bin --nice-name=rirud riru.Daemon $(magisk -V) $(magisk --path) $(getprop ro.dalvik.vm.native.bridge)&"
-umount "$MODDIR/module.prop"
+
+rm -rf "$(magisk --path)/riru"
+mkdir "$(magisk --path)/riru"
+for libname in riru riruhide riruloader; do
+  [ -f "$MODDIR/lib/lib${libname}.so" ] && cp -af "$MODDIR/lib/lib${libname}.so" "$(magisk --path)/riru/${libname}32"
+  [ -f "$MODDIR/lib64/lib${libname}.so" ] && cp -af "$MODDIR/lib64/lib${libname}.so" "$(magisk --path)/riru/${libname}64"
+done
+chmod -R 755 "$(magisk --path)/riru"
+  
+"$MODDIR/riruloader" "$(magisk --path)" &
