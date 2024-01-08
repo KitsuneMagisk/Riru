@@ -19,6 +19,10 @@ ui_print "- Installing Riru $RIRU_VERSION_NAME (Riru API $RIRU_API)"
 # check Magisk
 ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 
+if [ "$MAGISK_VER_CODE" -lt 26400 ]; then
+  abort "! Please install Magisk v26400+"
+fi
+
 # check android
 if [ "$API" -lt 23 ]; then
   ui_print "! Unsupported sdk: $API"
